@@ -11,4 +11,29 @@ services:
     volumes:
       - ./src:/app/src
     environment:
-      - ENVIRONMENT=development
+      - ENVIRONMENT=${ENVIRONMENT}
+    env_file:
+      - .env
+    networks:
+      - api_network
+    depends_on:
+      - db
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - 5432:${DB_PORT}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - api_network
+
+volumes:
+  db_data:
+
+networks:
+  api_network:
