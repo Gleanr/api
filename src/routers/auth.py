@@ -3,13 +3,41 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from psycopg.errors import UniqueViolation
 
-from schemas.auth import UserCreate, Token
+from schemas.auth import User as UserLogin, UserCreate, Token
 from models.users import User
-from utils.security import create_access_token, hash_password
+from utils.security import create_access_token, hash_password, verify_password
 from utils.database import get_session
 from utils.exceptions import raise_user_exists_exception, raise_bad_request_exception, raise_internal_error_exception
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
+
+
+@router.post("/login", response_model=Token)
+async def login(data: UserLogin):
+    user = None
+
+    with get_session() as session:
+        try:
+
+            result = session.execute(
+                sa.select(User).where(User.email == data.email)
+            )
+            user = result.scalar_one_or_none()
+        except IntegrityError as e:
+            session.rollback()
+            raise_bad_request_exception(f"Database constraint violated: {str(e)}")
+
+    if user is None:
+        raise_bad_request_exception("Invalid email or password")
+
+    if not verify_password(data.password, user.password):
+        raise_bad_request_exception("Invalid email or password")
+
+    access_token = create_access_token(
+        data={"email": user.email, "uid": user.id}
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/signup", response_model=Token)
