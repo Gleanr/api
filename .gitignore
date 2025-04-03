@@ -10,3 +10,6 @@ wheels/
 .venv
 
 .env
+
+# Editor directories and files
+.idea
