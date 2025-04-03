@@ -7,7 +7,12 @@ from schemas.auth import User as UserLogin, UserCreate, Token
 from models.users import User
 from utils.security import create_access_token, hash_password, verify_password
 from utils.database import get_session
-from utils.exceptions import raise_user_exists_exception, raise_bad_request_exception, raise_internal_error_exception
+from utils.exceptions import (
+    raise_unauthorized_exception,
+    raise_user_exists_exception,
+    raise_bad_request_exception,
+    raise_internal_error_exception
+)
 
 router = APIRouter(tags=["auth"])
 
@@ -28,10 +33,10 @@ async def login(data: UserLogin):
             raise_bad_request_exception(f"Database constraint violated: {str(e)}")
 
     if user is None:
-        raise_bad_request_exception("Invalid email or password")
+        raise_unauthorized_exception("Invalid email or password")
 
     if not verify_password(data.password, user.password):
-        raise_bad_request_exception("Invalid email or password")
+        raise_unauthorized_exception("Invalid email or password")
 
     access_token = create_access_token(
         data={"email": user.email, "uid": user.id}
