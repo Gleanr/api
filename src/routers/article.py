@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import newspaper
 from schemas.article import ArticleCreate
+from utils.security import get_current_user
+from models.users import User
 
 router = APIRouter(
     prefix="/articles",
@@ -10,10 +12,8 @@ router = APIRouter(
 
 @router.post("/save")
 async def save_article(
-    data: ArticleCreate
+    data: ArticleCreate,
+    current_user: User = Depends(get_current_user)
 ):
-    # article = newspaper.article('https://edition.cnn.com/2025/04/04/style/steinway-tower-penthouse-110-million/index.html')
-    # print(article.authors)
-    # print(article.text)
     print(f"_URL_{data.url}")
     return {"URL": "SAVED"}

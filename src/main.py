@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from routers.auth import router as auth_router
-from routers.articles import router as articles_router
+from routers.article import router as articles_router
 
 app = FastAPI()
 
