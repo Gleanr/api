@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from routers.auth import router as auth_router
 from routers.articles import router as articles_router
 
@@ -18,4 +19,4 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return RedirectResponse(url="/docs")
