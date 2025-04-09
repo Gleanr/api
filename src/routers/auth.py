@@ -11,6 +11,7 @@ from utils.exceptions import (
     raise_unauthorized_exception,
     raise_user_exists_exception,
     raise_bad_request_exception,
+    raise_internal_error_exception
 )
 
 router = APIRouter(tags=["auth"])
@@ -28,7 +29,7 @@ async def login(data: UserLogin):
             user = result.scalar_one_or_none()
         except IntegrityError as e:
             session.rollback()
-            raise_bad_request_exception(f"Database constraint violated: {str(e)}")
+            raise_internal_error_exception(f"Database constraint violated: {str(e)}")
 
     if user is None:
         raise_unauthorized_exception("Invalid email or password")
@@ -59,7 +60,7 @@ async def login_for_access_token(
             user = result.scalar_one_or_none()
         except IntegrityError as e:
             session.rollback()
-            raise_bad_request_exception(f"Database constraint violated: {str(e)}")
+            raise_internal_error_exception(f"Database constraint violated: {str(e)}")
 
     if user is None:
         raise_unauthorized_exception("Invalid email or password")
@@ -98,7 +99,7 @@ async def create_user(user: UserCreate):
                 if pg_code == '23505':
                     raise_user_exists_exception(f"User with email '{user.email}' already exists")
 
-            raise_bad_request_exception(f"Database constraint violated: {str(e)}")
+            raise_internal_error_exception(f"Database constraint violated: {str(e)}")
 
     access_token = create_access_token(
         data={"email": user.email, "uid": user_id}

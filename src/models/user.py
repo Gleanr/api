@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, MetaData, Table, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy import Column, Integer, String, MetaData
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 
