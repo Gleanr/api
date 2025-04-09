@@ -29,9 +29,8 @@ def raise_internal_error_exception(detail: str = "Internal server error"):
     )
 
 
-def raise_credentials_exception_exception(detail: str = "Could not validate credentials"):
+def raise_credentials_exception(detail: str = "Could not validate credentials"):
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=detail,
-        headers={"WWW-Authenticate": "Bearer"},
     )

@@ -2,18 +2,22 @@ from fastapi import APIRouter, Depends
 import newspaper
 from schemas.article import ArticleCreate
 from utils.security import get_current_user
-from models.users import User
+from models.user import User
 
 router = APIRouter(
-    prefix="/articles",
-    tags=["articles"]
+    prefix="/article",
+    tags=["article"]
 )
 
 
-@router.post("/save")
+@router.post("/")
 async def save_article(
     data: ArticleCreate,
     current_user: User = Depends(get_current_user)
 ):
-    print(f"_URL_{data.url}")
+    print(data.url, current_user.id, current_user.email)
+    article = newspaper.article(data.url)
+    print(article.title)
+    print(article.authors)
+
     return {"URL": "SAVED"}

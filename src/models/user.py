@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, MetaData
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import Column, Integer, String, MetaData, Table, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 
@@ -11,7 +11,7 @@ class Base(DeclarativeBase):
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False)

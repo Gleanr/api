@@ -1,17 +1,16 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Form
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from psycopg.errors import UniqueViolation
 
 from schemas.auth import User as UserLogin, UserCreate, Token
-from models.users import User
+from models.user import User
 from utils.security import create_access_token, hash_password, verify_password
 from utils.database import get_session
 from utils.exceptions import (
     raise_unauthorized_exception,
     raise_user_exists_exception,
     raise_bad_request_exception,
-    raise_internal_error_exception
 )
 
 router = APIRouter(tags=["auth"])
@@ -23,7 +22,6 @@ async def login(data: UserLogin):
 
     with get_session() as session:
         try:
-
             result = session.execute(
                 sa.select(User).where(User.email == data.email)
             )
@@ -45,10 +43,39 @@ async def login(data: UserLogin):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+# This endpoint for OAuth2 form-based authentication DOCS login
+@router.post("/token", response_model=Token)
+async def login_for_access_token(
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    user = None
+
+    with get_session() as session:
+        try:
+            result = session.execute(
+                sa.select(User).where(User.email == username)
+            )
+            user = result.scalar_one_or_none()
+        except IntegrityError as e:
+            session.rollback()
+            raise_bad_request_exception(f"Database constraint violated: {str(e)}")
+
+    if user is None:
+        raise_unauthorized_exception("Invalid email or password")
+
+    if not verify_password(password, user.password):
+        raise_unauthorized_exception("Invalid email or password")
+
+    access_token = create_access_token(
+        data={"email": user.email, "uid": user.id}
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 @router.post("/signup", response_model=Token)
 async def create_user(user: UserCreate):
-    user_id = None
-
     if user.password != user.confirm_password:
         raise_bad_request_exception("Passwords do not match")
     
@@ -72,10 +99,6 @@ async def create_user(user: UserCreate):
                     raise_user_exists_exception(f"User with email '{user.email}' already exists")
 
             raise_bad_request_exception(f"Database constraint violated: {str(e)}")
-
-    # QUESTION: Should I validate it or not?
-    if user_id is None:
-        raise_internal_error_exception("Failed to create user")
 
     access_token = create_access_token(
         data={"email": user.email, "uid": user_id}
