@@ -42,13 +42,8 @@ async def save_article(
 
                 except IntegrityError as e:
                     session.rollback()
-                    orig = getattr(e, 'orig', None)
-
-                    if isinstance(orig, UniqueViolation):
-                        pg_code = getattr(orig, 'sqlstate', None)
-                        if pg_code == '23505':
-                            print("_conflict")
-                            return {"content_id": existing_article.id}
+                    if "already exists" in e.orig.args[0]:
+                        return {"content_id": existing_article.id}
 
                     raise_internal_error_exception(f"Database constraint violated: {str(e)}")
 

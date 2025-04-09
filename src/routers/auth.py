@@ -92,12 +92,9 @@ async def create_user(user: UserCreate):
             user_id = result.scalar_one()
         except IntegrityError as e:
             session.rollback()
-            orig = getattr(e, 'orig', None)
 
-            if isinstance(orig, UniqueViolation):
-                pg_code = getattr(orig, 'sqlstate', None)
-                if pg_code == '23505':
-                    raise_user_exists_exception(f"User with email '{user.email}' already exists")
+            if "already exists" in e.orig.args[0]:
+                raise_user_exists_exception(f"User with email '{user.email}' already exists")
 
             raise_internal_error_exception(f"Database constraint violated: {str(e)}")
 
