@@ -4,7 +4,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from psycopg.errors import UniqueViolation
 
-from schemas.article import ArticleCreate, Article as ArticleResponse, ArticleSummaryList
+from schemas.article import ArticleCreate, Article as ArticleResponse, ArticleSummaryList, ArticleDetail
 from models.user import User
 from models.article import Article
 from models.associations import user_article
@@ -119,4 +119,31 @@ async def get_articles(current_user: User = Depends(get_current_user)):
 
             return {"articles": articles}
         except Exception as e:
-            raise_internal_error_exception(f"Failed to fetch articles: {str(e)}")
+            raise_internal_error_exception(str(e))
+
+
+@router.get("/{id}", response_model=ArticleDetail)
+async def get_article_by_id(
+    id: int,
+    current_user: User = Depends(get_current_user)
+):
+    with get_session() as session:
+        try:
+            result = session.execute(
+                sa.select(Article)
+                .join(user_article, Article.id == user_article.c.article_id)
+                .where(
+                    sa.and_(
+                        Article.id == id,
+                        user_article.c.user_id == current_user.id
+                    )
+                )
+            )
+            article = result.scalar_one_or_none()
+            
+            if not article:
+                raise_bad_request_exception("Article not found or not accessible")
+                
+            return article
+        except Exception as e:
+            raise_internal_error_exception(str(e))
