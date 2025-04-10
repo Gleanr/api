@@ -4,7 +4,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from psycopg.errors import UniqueViolation
 
-from schemas.article import ArticleCreate, Article as ArticleResponse
+from schemas.article import ArticleCreate, Article as ArticleResponse, ArticleSummaryList
 from models.user import User
 from models.article import Article
 from models.associations import user_article
@@ -90,3 +90,33 @@ async def save_article(
         raise_bad_request_exception("Incorrect url")
 
     return {"content_id": article_id}
+
+
+@router.get("/", response_model=ArticleSummaryList)
+async def get_articles(current_user: User = Depends(get_current_user)):
+    with get_session() as session:
+        try:
+            result = session.execute(
+                sa.select(
+                    Article.id,
+                    Article.title,
+                    Article.description,
+                    Article.site_name,
+                    Article.created_at
+                )
+                .join(user_article, Article.id == user_article.c.article_id)
+                .where(user_article.c.user_id == current_user.id)
+                .order_by(Article.created_at.desc())
+            )
+            articles = [{
+                "id": id,
+                "title": title,
+                "description": description,
+                "site_name": site_name,
+                "created_at": created_at
+            }
+                        for id, title, description, site_name, created_at in result.all()]
+
+            return {"articles": articles}
+        except Exception as e:
+            raise_internal_error_exception(f"Failed to fetch articles: {str(e)}")
