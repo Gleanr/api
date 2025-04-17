@@ -4,6 +4,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from psycopg.errors import UniqueViolation
 
+from daos.article import ArticleDAO
 from schemas.article import ArticleCreate, Article as ArticleResponse, ArticleSummaryList, ArticleDetail
 from models.user import User
 from models.article import Article
@@ -20,130 +21,71 @@ router = APIRouter(
 
 @router.post("/", response_model=ArticleResponse)
 async def save_article(
-    data: ArticleCreate,
-    current_user: User = Depends(get_current_user)
+        data: ArticleCreate,
+        current_user: User = Depends(get_current_user)
 ):
-    with get_session() as session:
-        try:
-            result = session.execute(
-                sa.select(Article).where(Article.url == data.url)
-            )
-            existing_article = result.scalar_one_or_none()
-
-            if existing_article:
-                try:
-                    session.execute(
-                        sa.insert(user_article).values(
-                            user_id=current_user.id,
-                            article_id=existing_article.id
-                        )
-                    )
-                    session.commit()
-
-                except IntegrityError as e:
-                    session.rollback()
-                    if "already exists" in e.orig.args[0]:
-                        return {"content_id": existing_article.id}
-
-                    raise_internal_error_exception(f"Database constraint violated: {str(e)}")
-
-                return {"content_id": existing_article.id}
-
-        except IntegrityError as e:
-            session.rollback()
-            raise_internal_error_exception(f"Database constraint violated: {str(e)}")
+    article_dao = ArticleDAO()
 
     try:
-        article = newspaper.article(data.url)
+        try:
+            existing_article = article_dao.get_by_url(data.url)
+            article_dao.insert_user_article(current_user.id, existing_article.id)
 
-        with get_session() as session:
+            return {"content_id": existing_article.id}
+
+        except ArticleDAO.UserArticleAlreadyExistsError:
+            return {"content_id": existing_article.id}
+
+        except ArticleDAO.ArticleNotFoundError:
             try:
-                result = session.execute(
-                    sa.insert(Article).values(
-                        url=article.url,
-                        title=article.title,
-                        content=article.text,
-                        authors=article.authors,
-                        published_date=article.publish_date,
-                        top_image=article.top_image,
-                        site_name = article.meta_site_name,
-                        description = article.meta_description,
-                    ).returning(Article.id)
-                )
+                article = newspaper.article(data.url)
+            except Exception as e:
+                print(f"Error parsing article: {str(e)}")
+                raise_bad_request_exception("Incorrect url")
 
-                article_id = result.scalar_one()
+            article_data = {
+                "url": article.url,
+                "title": article.title,
+                "content": article.text,
+                "authors": article.authors,
+                "published_date": article.publish_date,
+                "top_image": article.top_image,
+                "site_name": article.meta_site_name,
+                "description": article.meta_description,
+            }
 
-                session.execute(
-                    sa.insert(user_article).values(
-                        user_id=current_user.id,
-                        article_id=article_id
-                    )
-                )
+            new_article_id = article_dao.insert_article(article_data)
+            article_dao.insert_user_article(current_user.id, new_article_id)
 
-                session.commit()
-            except IntegrityError as e:
-                session.rollback()
-                raise_internal_error_exception(f"Database constraint violated: {str(e)}")
+            return {"content_id": new_article_id}
 
-    except Exception as e:
-        print(f"Error parsing article: {str(e)}")
-        raise_bad_request_exception("Incorrect url")
-
-    return {"content_id": article_id}
+    except IntegrityError as e:
+        raise_internal_error_exception(f"Database constraint violated: {str(e)}")
 
 
 @router.get("/", response_model=ArticleSummaryList)
 async def get_articles(current_user: User = Depends(get_current_user)):
-    with get_session() as session:
-        try:
-            result = session.execute(
-                sa.select(
-                    Article.id,
-                    Article.title,
-                    Article.description,
-                    Article.site_name,
-                    Article.created_at
-                )
-                .join(user_article, Article.id == user_article.c.article_id)
-                .where(user_article.c.user_id == current_user.id)
-                .order_by(Article.created_at.desc())
-            )
-            articles = [{
-                "id": id,
-                "title": title,
-                "description": description,
-                "site_name": site_name,
-                "created_at": created_at
-            }
-                        for id, title, description, site_name, created_at in result.all()]
+    article_dao = ArticleDAO()
 
-            return {"articles": articles}
-        except Exception as e:
+    try:
+        articles = article_dao.get_list(current_user.id)
+
+        return {"articles": articles}
+    except Exception as e:
             raise_internal_error_exception(str(e))
 
 
 @router.get("/{id}", response_model=ArticleDetail)
 async def get_article_by_id(
-    id: int,
-    current_user: User = Depends(get_current_user)
+        id: int,
+        current_user: User = Depends(get_current_user)
 ):
-    with get_session() as session:
-        try:
-            result = session.execute(
-                sa.select(Article)
-                .join(user_article, Article.id == user_article.c.article_id)
-                .where(
-                    sa.and_(
-                        Article.id == id,
-                        user_article.c.user_id == current_user.id
-                    )
-                )
-            )
-            article = result.scalar_one_or_none()
-            
-            if not article:
-                raise_bad_request_exception("Article not found or not accessible")
-                
-            return article
-        except Exception as e:
-            raise_internal_error_exception(str(e))
+    article_dao = ArticleDAO()
+
+    try:
+        return article_dao.get_details(current_user.id, id)
+
+    except ArticleDAO.ArticleNotFoundError:
+        raise_bad_request_exception("Article not found or not accessible")
+    except Exception as e:
+        raise_internal_error_exception(str(e))
