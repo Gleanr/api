@@ -1,12 +1,13 @@
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
+from domain.entities import ArticleEntity
 from models.article import Article
 from models.associations import user_article
 from utils.database import get_session
 
 
-class ArticleDAO:
+class ArticleDbDAO:
     class ArticleNotFoundError(Exception):
         pass
 
@@ -23,7 +24,6 @@ class ArticleDAO:
             if not existing_article:
                 raise self.ArticleNotFoundError
 
-            print(type(existing_article), existing_article)
             return existing_article
 
     def get_details(self, user_id: int, article_id: int) -> Article:
@@ -72,25 +72,27 @@ class ArticleDAO:
 
     def insert_user_article(self, user_id: int, article_id: int):
         with get_session() as session:
-            session.execute(
-                sa.insert(user_article).values(
-                    user_id=user_id,
-                    article_id=article_id
-                )
-            )
-
             try:
+                session.execute(
+                    sa.insert(user_article).values(
+                        user_id=user_id,
+                        article_id=article_id
+                    )
+                )
+
                 session.commit()
 
             except IntegrityError as e:
+                print(1111, e)
                 if "already exists" in e.orig.args[0]:
                     raise self.UserArticleAlreadyExistsError
                 raise e
 
-    def insert_article(self, article_data: dict[str, any]) -> int:
+    def insert_article(self, article_data: ArticleEntity) -> int:
+        print(222, type(article_data))
         with get_session() as session:
             result = session.execute(
-                sa.insert(Article).values(**article_data).returning(Article.id)
+                sa.insert(Article).values(**article_data.model_dump(exclude={"id", "created_at"})).returning(Article.id)
             )
             article_id = result.scalar_one_or_none()
 
