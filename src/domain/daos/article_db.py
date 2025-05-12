@@ -83,13 +83,11 @@ class ArticleDbDAO:
                 session.commit()
 
             except IntegrityError as e:
-                print(1111, e)
                 if "already exists" in e.orig.args[0]:
                     raise self.UserArticleAlreadyExistsError
                 raise e
 
     def insert_article(self, article_data: ArticleEntity) -> int:
-        print(222, type(article_data))
         with get_session() as session:
             result = session.execute(
                 sa.insert(Article).values(**article_data.model_dump(exclude={"id", "created_at"})).returning(Article.id)

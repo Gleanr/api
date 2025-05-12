@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Form
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
-from psycopg.errors import UniqueViolation
 
 from schemas.auth import User as UserLogin, UserCreate, Token
 from models.user import User
-from utils.security import create_access_token, hash_password, verify_password
+from domain.daos.user import UserDAO
+from domain.usecases.save_user_usecase import SaveUserUsecase
+from utils.security import create_access_token, verify_password
 from utils.database import get_session
 from utils.exceptions import (
     raise_unauthorized_exception,
-    raise_user_exists_exception,
     raise_bad_request_exception,
     raise_internal_error_exception
 )
@@ -79,27 +79,9 @@ async def login_for_access_token(
 async def create_user(user: UserCreate):
     if user.password != user.confirm_password:
         raise_bad_request_exception("Passwords do not match")
-    
-    with get_session() as session:
-        try:
-            result = session.execute(
-                sa.insert(User).values(
-                    email=user.email,
-                    password=hash_password(user.password)
-                ).returning(User.id)
-            )
-            session.commit()
-            user_id = result.scalar_one()
-        except IntegrityError as e:
-            session.rollback()
 
-            if "already exists" in e.orig.args[0]:
-                raise_user_exists_exception(f"User with email '{user.email}' already exists")
-
-            raise_internal_error_exception(f"Database constraint violated: {str(e)}")
-
-    access_token = create_access_token(
-        data={"email": user.email, "uid": user_id}
-    )
+    user_dao = UserDAO()
+    usecase = SaveUserUsecase(user_dao)
+    access_token = usecase.execute(email=user.email, password=user.password)
 
     return {"access_token": access_token, "token_type": "bearer"}

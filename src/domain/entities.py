@@ -3,6 +3,13 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class UserEntity(BaseModel):
+    id: Optional[int] = None
+    email: str
+    password: str
+    created_at: Optional[datetime] = None
+
+
 class ArticleEntity(BaseModel):
     id: Optional[int] = None
     url: str = Field()
