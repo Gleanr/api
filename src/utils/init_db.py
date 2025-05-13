@@ -1,5 +1,5 @@
 from src.utils.database import engine
-from models.users import Base, User
+from models.user import Base, User
 
 
 def init_db():
