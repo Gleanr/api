@@ -10,13 +10,32 @@ class UserDAO:
     class UserAlreadyExistsError(Exception):
         pass
 
-    def insert_user(self, user_email: str, user_password: str):
+    class UserNotFoundError(Exception):
+        pass
+
+    def get_by_email(self, email: str):
+        with get_session() as session:
+            try:
+                result = session.execute(
+                    sa.select(User).where(User.email == email)
+                )
+                user = result.scalar_one_or_none()
+            except IntegrityError as e:
+                raise e
+
+        if not user:
+            raise self.UserNotFoundError
+
+        return user
+
+
+    def insert_user(self, email: str, password: str):
         with get_session() as session:
             try:
                 result = session.execute(
                     sa.insert(User).values(
-                        email=user_email,
-                        password=hash_password(user_password)
+                        email=email,
+                        password=hash_password(password)
                     ).returning(User.id)
                 )
 

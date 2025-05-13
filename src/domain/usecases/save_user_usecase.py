@@ -1,6 +1,6 @@
 from sqlalchemy.exc import IntegrityError
-from domain.daos.user import UserDAO
-from utils.security import create_access_token, verify_password
+from domain.daos.user_db import UserDAO
+from utils.security import create_access_token
 from utils.exceptions import raise_internal_error_exception, raise_user_exists_exception
 
 
@@ -10,7 +10,7 @@ class SaveUserUsecase:
 
     def execute(self, email: str, password: str):
         try:
-            user_id = self.user_dao.insert_user(user_email=email, user_password=password)
+            user_id = self.user_dao.insert_user(email=email, password=password)
             access_token = create_access_token(
                 data={"email": email, "uid": user_id}
             )
