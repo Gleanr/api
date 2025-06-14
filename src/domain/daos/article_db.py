@@ -14,17 +14,29 @@ class ArticleDbDAO:
     class UserArticleAlreadyExistsError(Exception):
         pass
 
-    def get_by_url(self, url: str) -> Article:
+    def get_by_url(self, url: str):
         with get_session() as session:
             result = session.execute(
-                sa.select(Article).where(Article.url == url)
+                sa.select(
+                    Article.id,
+                    Article.title,
+                    Article.description,
+                    Article.site_name,
+                    Article.created_at
+                ).where(Article.url == url)
             )
-            existing_article = result.scalar_one_or_none()
+            existing_article = result.first()
 
             if not existing_article:
                 raise self.ArticleNotFoundError
 
-            return existing_article
+            return {
+                "id": existing_article.id,
+                "title": existing_article.title,
+                "description": existing_article.description,
+                "site_name": existing_article.site_name,
+                "created_at": existing_article.created_at
+            }
 
     def get_details(self, user_id: int, article_id: int) -> Article:
         with get_session() as session:
@@ -87,16 +99,28 @@ class ArticleDbDAO:
                     raise self.UserArticleAlreadyExistsError
                 raise e
 
-    def insert_article(self, article_data: ArticleEntity) -> int:
+    def insert_article(self, article_data: ArticleEntity) -> dict:
         with get_session() as session:
             result = session.execute(
-                sa.insert(Article).values(**article_data.model_dump(exclude={"id", "created_at"})).returning(Article.id)
+                sa.insert(Article).values(**article_data.model_dump(exclude={"id", "created_at"})).returning(
+                    Article.id,
+                    Article.title,
+                    Article.description,
+                    Article.site_name,
+                    Article.created_at
+                )
             )
-            article_id = result.scalar_one_or_none()
+            article_data = result.first()
 
             try:
                 session.commit()
-                return article_id
+                return {
+                    "id": article_data.id,
+                    "title": article_data.title,
+                    "description": article_data.description,
+                    "site_name": article_data.site_name,
+                    "created_at": article_data.created_at
+                }
 
             except IntegrityError as e:
                 raise e

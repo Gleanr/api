@@ -33,3 +33,6 @@ class ArticleList(BaseModel):
 
 class ArticleSummaryList(BaseModel):
     articles: List[ArticleSummary]
+
+class NewArticleSummary(BaseModel):
+    new_article: ArticleSummary
